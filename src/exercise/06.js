@@ -3,10 +3,14 @@
 
 import * as React from 'react'
 import {Switch} from '../switch'
+import warning from 'warning'
 
-const callAll = (...fns) => (...args) => fns.forEach(fn => fn?.(...args))
+const callAll =
+  (...fns) =>
+  (...args) =>
+    fns.forEach(fn => fn?.(...args))
 
-const actionTypes = { toggle: 'toggle', reset: 'reset', }
+const actionTypes = {toggle: 'toggle', reset: 'reset'}
 
 function toggleReducer(state, {type, initialState}) {
   switch (type) {
@@ -22,37 +26,57 @@ function toggleReducer(state, {type, initialState}) {
   }
 }
 
-function useToggle({ initialOn = false, reducer = toggleReducer, onChange, on: controlledOn} = {}) {
+function useToggle({
+  initialOn = false,
+  reducer = toggleReducer,
+  onChange,
+  on: controlledOn,
+  readOnly = false,
+} = {}) {
   const {current: initialState} = React.useRef({on: initialOn})
   const [state, dispatch] = React.useReducer(reducer, initialState)
 
-  const onIsControlled = controlledOn != null;
+  const onIsControlled = controlledOn != null
 
-  const on = onIsControlled ? controlledOn : state.on;
+  const on = onIsControlled ? controlledOn : state.on
+
+  const hasOnChange = Boolean(onChange)
+  React.useEffect(() => {
+    warning(
+      !(!hasOnChange && onIsControlled && !readOnly),
+      `An \`on\` prop was provided to useToggle without an \`onChange\` handler. This will render a read-only toggle. If you want it to be mutable, use \`initialOn\`. Otherwise, set either \`onChange\` or \`readOnly\`.`,
+    )
+  }, [hasOnChange, onIsControlled, readOnly])
 
   function dispatchWithOnChange(action) {
-    if(!onIsControlled){
-      dispatch(action);
+    if (!onIsControlled) {
+      dispatch(action)
     }
-    onChange?.(reducer({...state, on}, action), action);
+    onChange?.(reducer({...state, on}, action), action)
   }
 
   const toggle = () => dispatchWithOnChange({type: actionTypes.toggle})
-  const reset = () => dispatchWithOnChange({type: actionTypes.reset, initialState})
+  const reset = () =>
+    dispatchWithOnChange({type: actionTypes.reset, initialState})
 
   function getTogglerProps({onClick, ...props} = {}) {
-    return {'aria-pressed': on, onClick: callAll(onClick, toggle), ...props,}
+    return {'aria-pressed': on, onClick: callAll(onClick, toggle), ...props}
   }
 
   function getResetterProps({onClick, ...props} = {}) {
-    return { onClick: callAll(onClick, reset), ...props,}
+    return {onClick: callAll(onClick, reset), ...props}
   }
 
-  return { on, reset, toggle, getTogglerProps,getResetterProps, }
+  return {on, reset, toggle, getTogglerProps, getResetterProps}
 }
 
 function Toggle({on: controlledOn, onChange, initialOn, reducer}) {
-  const {on, getTogglerProps} = useToggle({ on: controlledOn, onChange, initialOn, reducer, })
+  const {on, getTogglerProps} = useToggle({
+    on: controlledOn,
+    onChange,
+    initialOn,
+    reducer,
+  })
   const props = getTogglerProps({on})
   return <Switch {...props} />
 }
